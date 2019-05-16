@@ -18,7 +18,8 @@ class TextDataset(Dataset):
         self.charSplit = char
 
     def __len__(self):
-        return len(self.labels) - self.max_len-1
+        # return len(self.labels) - self.max_len-1
+        return len(self.labels) - self.max_len
 
     def __getitem__(self, idx):
 
@@ -26,7 +27,8 @@ class TextDataset(Dataset):
             # char_seq = unicode_to_ascii(self.data[idx:idx+self.max_len], ALPHABET)
             char_seq = self.data[idx:idx+self.max_len]
             # char_label_seq = unicode_to_aself.data[idx:idx+self.max_len], ALPHABET)
-            char_label_seq = self.data[(idx+1):(idx+1)+self.max_len]
+            # char_label_seq = self.data[(idx+1):(idx+1)+self.max_len]
+            char_label_seq = self.labels[idx:idx + self.max_len]
 
             encoded = [letter_to_index(char, ALPHABET) for char in char_seq]
             encoded_label = [letter_to_index(char, ALPHABET) for char in char_label_seq]

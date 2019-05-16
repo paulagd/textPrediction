@@ -1,11 +1,14 @@
 import unicodedata
 import string
 import numpy as np
+import torch
 from IPython import embed
 
 # ALPHABET = string.ascii_letters + string.digits + string.whitespace + ":;,.¡!?¿()"
-# ALPHABET = u'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ ;,.-!?¿'
+
 ALPHABET = "yIYKz.\'l:;)OrCiJGPQ\n*nWEXkc[(ojmfp-dxwUSeBVsu,qMTRA]gL b!vNDFa\"h?Ht"
+# global ALPHABET
+# ALPHABET = 'a'
 
 
 def split_data(dataset_path, train_partition, only_train=False):
@@ -38,6 +41,43 @@ def get_labels_text_prediction(x, padding=None):
     else:
         y += x[0]
     return y
+
+
+def set_alphabet(train_set):
+    global ALPHABET
+    ALPHABET = ''.join(set(train_set))
+    return len(ALPHABET)
+
+
+def do_inference_test(first_sentence, model, device, range_seq=100):
+    words = []
+    top_k = 50
+    first_sentence = first_sentence.transpose(2, 1)
+    state_h, state_c = model.zero_state(1)
+    _, top_x = torch.topk(first_sentence, k=top_k)
+    choices = top_x.tolist()[0]
+    r = np.random.randint(len(choices))
+    choice = choices[r]
+    pred_word = [index_to_letter(c, ALPHABET) for c in choice]
+    pred_word = ''.join(pred_word)
+    words.append(pred_word)
+
+    for _ in range(range_seq):
+        # char = unicode_to_ascii(pred_word, ALPHABET)
+        encoded = [letter_to_index(w, ALPHABET) for w in pred_word]
+        new_x = torch.tensor([encoded], dtype=torch.long).to(device)
+        output, (state_h, state_c) = model(new_x, (state_h, state_c))
+        # output = output.transpose(1, 2)
+
+        _, top_x = torch.topk(output[0], k=top_k)
+        choices = top_x.tolist()
+        r = np.random.randint(len(choices))
+        choice = choices[r]
+        pred_word = [index_to_letter(c, ALPHABET) for c in choice]
+        pred_word = ''.join(pred_word)
+        words.append(pred_word)
+
+    return ' '.join(words)
 
 
 # NO NUESTRO

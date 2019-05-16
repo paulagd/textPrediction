@@ -2,7 +2,7 @@ import torch
 from tensorboardX import SummaryWriter
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from utils import get_labels_text_prediction
+from utils import get_labels_text_prediction, do_inference_test
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from dataset import TextDataset
 from datetime import datetime
@@ -30,6 +30,7 @@ def train(opt, x_train, x_val, dictionary_len):
         print_every: Number of steps for printing training and validation loss
 
     '''
+    x_val = x_train[:1000]
     # Declaring the hyperparameters
     batch_size = opt.batch_size
     seq_length = 100
@@ -81,7 +82,8 @@ def train(opt, x_train, x_val, dictionary_len):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr)
     criterion = nn.CrossEntropyLoss()
-    scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=3)
+    if opt.scheduler:
+        scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=3)
 
     global_step = 0
     for j in trange(epochs, desc='T raining LSTM...'):
@@ -97,7 +99,6 @@ def train(opt, x_train, x_val, dictionary_len):
             if i == len(train_loader) - 1:
                 print("FER PADDING -  DE MOMENT NO VA")
                 continue
-
             model.train()
             optimizer.zero_grad()
 
@@ -156,10 +157,16 @@ def train(opt, x_train, x_val, dictionary_len):
                     print('[Validation epoch {}: {}/{}] Loss: {}'.format(j, i, len(val_loader), loss.item()))
 
             writer.add_scalar('val/loss', np.mean(val_loss), j)
-            scheduler.step(np.mean(val_loss))
-            writer.add_scalar("lr", optimizer.param_groups[0]["lr"], j)
-            # scheduler.step(np.mean(val_loss))
-            # writer.add_scalar("lr", optimizer.param_groups[0]["lr"], j)
+
+            if opt.scheduler:
+                scheduler.step(np.mean(val_loss))
+                writer.add_scalar("lr", optimizer.param_groups[0]["lr"], j)
+
+            output = pred[0].unsqueeze(0) # [1,67, 35]
+            predicted_words = do_inference_test(output, model, device, range_seq=10)
+            print(predicted_words)
+            writer.add_text('val/Generated_Samples', predicted_words, j)
+
         checkpoint = {
             "state_dict": model.state_dict(),
             "optimizer": optimizer.state_dict(),

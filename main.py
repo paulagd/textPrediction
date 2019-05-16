@@ -1,6 +1,6 @@
 import argparse
-from utils import split_data, ALPHABET
-from char_train import train
+from utils import split_data, set_alphabet, ALPHABET
+from train import train
 from inference import inference
 from IPython import embed
 
@@ -20,6 +20,7 @@ def parse_args():
     parser.add_argument("--nologs", action="store_true", help="enables no tensorboard")
     parser.add_argument("--inference", action="store_true", help="enables INFERENCE MODE")
     parser.add_argument("--char", action="store_true", help="enables char embedding MODE")
+    parser.add_argument("--scheduler", action="store_true", help="enables char embedding MODE")
     # parser.add_argument(
     #     "--outc", default="./checkpoints/", help="folder to output model checkpoints"
     # )
@@ -32,14 +33,20 @@ def parse_args():
 if __name__ == '__main__':
 
     opt = parse_args()
-    x_train, x_test, x_val = split_data('./11.txt', 0.8, opt.onlytrain)
-    dictionary_len = len(ALPHABET)
+    # IDEA: Split just in TRAIN and TEST because the final test will be just
+    # by writing a letter, predict the whole sentence --> we dont need a test set
 
+    # x_train, x_test, x_val = split_data('./11.txt', 0.8, opt.onlytrain)
+    x_train, x_test, x_val = split_data('./11.txt', 0.8, False)
+    # embed()
+    # dictionary_len = set_alphabet(x_train)
+    dictionary_len = len(ALPHABET)
 
     if opt.inference:
         inference(opt, x_test, dictionary_len)
     else:
         train(opt, x_train, x_val, dictionary_len)
+        # train(opt, x_train, x_test, dictionary_len)
 
 
 
