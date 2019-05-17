@@ -34,7 +34,7 @@ def train(opt, x_train, x_val, dictionary_len):
     # Declaring the hyperparameters
     batch_size = opt.batch_size
     seq_length = 100
-    epochs = 100  # start smaller if you are just testing initial behavior
+    epochs = 100000  # start smaller if you are just testing initial behavior
 
     # opt = parse_args()
     if torch.cuda.is_available():
@@ -174,11 +174,3 @@ def train(opt, x_train, x_val, dictionary_len):
 
         os.makedirs("weights/{}".format(date), exist_ok=True)
         torch.save(checkpoint, "weights/{}/checkpoint_{}.pt".format(date, j))
-
-
-
-
-
-
-
-

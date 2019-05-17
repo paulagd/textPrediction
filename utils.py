@@ -54,6 +54,11 @@ def do_inference_test(first_sentence, model, device, range_seq=100):
     top_k = 50
     first_sentence = first_sentence.transpose(2, 1)
     state_h, state_c = model.zero_state(1)
+    state_h = state_h.to(device)
+    state_c = state_c.to(device)
+
+    first_sentence = first_sentence.to(device)
+    
     _, top_x = torch.topk(first_sentence, k=top_k)
     choices = top_x.tolist()[0]
     r = np.random.randint(len(choices))
@@ -126,4 +131,3 @@ def one_hot_encode(arr, n_labels):
     one_hot = one_hot.reshape((*arr.shape, n_labels))
 
     return one_hot
-
