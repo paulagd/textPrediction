@@ -6,7 +6,9 @@ from IPython import embed
 
 # ALPHABET = string.ascii_letters + string.digits + string.whitespace + ":;,.¡!?¿()"
 
-ALPHABET = "yIYKz.\'l:;)OrCiJGPQ\n*nWEXkc[(ojmfp-dxwUSeBVsu,qMTRA]gL b!vNDFa\"h?Ht"
+# ALPHABET = "#yIYKz.\'l:;)OrCiJGPQ\n*nWEXkc[(ojmfp-dxwUSeBVsu,qMTRA]gL b!vNDFa\"h?Ht"
+# ALPHABET = '#abcdefghijklmnñopqrstuvwxyz[()] *-?\'.,;!\n\"'
+ALPHABET = '\n !"#$%\'()*,-./0123456789:;?@[]_abcdefghijklmnopqrstuvwxyz'
 # global ALPHABET
 # ALPHABET = 'a'
 
@@ -34,6 +36,24 @@ def split_data(dataset_path, train_partition, only_train=False):
     return tr_set, tst_set, val_set
 
 
+def split_data_without_test(dataset_path):
+    '''
+    Takes the dataset path and split it into train and test set.
+        - If val == True, it splits the 30% of the training test into validation as well.
+    '''
+    with open(dataset_path, 'r') as f:
+        dataset = f.read()  # Alice
+
+    dataset = dataset.lower()
+    aux = round(len(dataset) * 0.75)
+    train_set = dataset[:aux]
+    val_set = dataset[aux:]
+
+    assert len(train_set) + len(val_set) == len(dataset)
+
+    return train_set, val_set
+
+
 def get_labels_text_prediction(x, padding=None):
     y = x[1:]
     if padding:
@@ -49,21 +69,44 @@ def set_alphabet(train_set):
     return len(ALPHABET)
 
 
-def do_inference_test(first_sentence, model, device, range_seq=100):
+def pred_dani(model, device, range_seq=100):
+
+    letter = torch.LongTensor([10]).reshape(1, 1)
+    letter = letter.to(device)
+
+    pred, state = model(letter)
+
     words = []
-    top_k = 50
-    first_sentence = first_sentence.transpose(2, 1)
-    state_h, state_c = model.zero_state(1)
-    state_h = state_h.to(device)
-    state_c = state_c.to(device)
+    pred = torch.argmax(pred, dim=-1)
+    words.append(index_to_letter(pred.squeeze().item(), ALPHABET))
+
+    for _ in range(range_seq):
+        pred, state = model(pred, state)
+        pred = torch.argmax(pred, dim=-1)
+        words.append(index_to_letter(pred.squeeze().item(), ALPHABET))
+
+    return ''.join(words)
+
+
+def do_inference_test(first_sentence, model, device, range_seq=10):
+    words = []
+    top_k = 10
+
+
+    # first_sentence = first_sentence.transpose(2, 1)
+    # state_h, state_c = model.zero_state(1)
+    # state_h = state_h.to(device)
+    # state_c = state_c.to(device)
 
     first_sentence = first_sentence.to(device)
-    
-    _, top_x = torch.topk(first_sentence, k=top_k)
-    choices = top_x.tolist()[0]
-    r = np.random.randint(len(choices))
-    choice = choices[r]
-    pred_word = [index_to_letter(c, ALPHABET) for c in choice]
+    # [1,40,1]
+    max_y = torch.max(first_sentence, dim=2)[1].squeeze()
+    # _, top_x = torch.topk(first_sentence, k=top_k)
+    # choices = top_x.tolist()[0]
+    # r = np.random.randint(len(choices))
+    # choice = choices[r]
+
+    pred_word = [index_to_letter(c, ALPHABET) for c in max_y]
     pred_word = ''.join(pred_word)
     words.append(pred_word)
 
@@ -71,14 +114,12 @@ def do_inference_test(first_sentence, model, device, range_seq=100):
         # char = unicode_to_ascii(pred_word, ALPHABET)
         encoded = [letter_to_index(w, ALPHABET) for w in pred_word]
         new_x = torch.tensor([encoded], dtype=torch.long).to(device)
-        output, (state_h, state_c) = model(new_x, (state_h, state_c))
+        output, (state_h, state_c) = model(new_x)
         # output = output.transpose(1, 2)
 
-        _, top_x = torch.topk(output[0], k=top_k)
-        choices = top_x.tolist()
-        r = np.random.randint(len(choices))
-        choice = choices[r]
-        pred_word = [index_to_letter(c, ALPHABET) for c in choice]
+        max_y = torch.max(output, dim=2)[1].squeeze()
+
+        pred_word = [index_to_letter(c, ALPHABET) for c in max_y]
         pred_word = ''.join(pred_word)
         words.append(pred_word)
 
@@ -95,7 +136,11 @@ def unicode_to_ascii(s, all_letters):
 
 
 def letter_to_index(letter, all_letters):
-    return all_letters.find(letter)
+    value = all_letters.find(letter)
+    if value == -1:
+        return 0
+    else:
+        return value
 
 
 def index_to_letter(idx, all_letters):

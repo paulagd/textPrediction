@@ -1,5 +1,5 @@
 import argparse
-from utils import split_data, set_alphabet, ALPHABET
+from utils import split_data, set_alphabet, ALPHABET, split_data_without_test
 from train import train
 from inference import inference
 from IPython import embed
@@ -16,10 +16,10 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=128, help="Random seed")
     parser.add_argument("--layers", type=int, default=1, help="Random seed")
     parser.add_argument("--dropout", type=float, default=0, help="dropout parameter")
-    parser.add_argument("--lr", type=float, default=0.01, help="learning rate parameter")
+    parser.add_argument("--lr", type=float, default=0.0001, help="learning rate parameter")
+    parser.add_argument("--seq_length", type=float, default=35, help="learning rate parameter")
     parser.add_argument("--nologs", action="store_true", help="enables no tensorboard")
     parser.add_argument("--inference", action="store_true", help="enables INFERENCE MODE")
-    parser.add_argument("--char", action="store_true", help="enables char embedding MODE")
     parser.add_argument("--scheduler", action="store_true", help="enables char embedding MODE")
     # parser.add_argument(
     #     "--outc", default="./checkpoints/", help="folder to output model checkpoints"
@@ -37,25 +37,14 @@ if __name__ == '__main__':
     # by writing a letter, predict the whole sentence --> we dont need a test set
 
     # x_train, x_test, x_val = split_data('./11.txt', 0.8, opt.onlytrain)
-    x_train, x_test, x_val = split_data('./11.txt', 0.8, False)
+    # x_train, x_test, x_val = split_data('./11.txt', 0.8, False)
+    x_train, x_val = split_data_without_test('./11.txt')
     # embed()
     # dictionary_len = set_alphabet(x_train)
     dictionary_len = len(ALPHABET)
 
-    if opt.inference:
-        inference(opt, x_test, dictionary_len)
-    else:
-        train(opt, x_train, x_val, dictionary_len)
+    # if opt.inference:
+    #     inference(opt, x_test, dictionary_len)
+    # else:
+    train(opt, x_train, x_val, dictionary_len)
         # train(opt, x_train, x_test, dictionary_len)
-
-
-
-
-
-
-
-
-
-
-
-
