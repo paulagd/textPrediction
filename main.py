@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=128, help="Random seed")
     parser.add_argument("--layers", type=int, default=1, help="Random seed")
     parser.add_argument("--dropout", type=float, default=0, help="dropout parameter")
-    parser.add_argument("--lr", type=float, default=0.0001, help="learning rate parameter")
+    parser.add_argument("--lr", type=float, default=0.001, help="learning rate parameter")
     parser.add_argument("--seq_length", type=float, default=35, help="learning rate parameter")
     parser.add_argument("--nologs", action="store_true", help="enables no tensorboard")
     parser.add_argument("--inference", action="store_true", help="enables INFERENCE MODE")
@@ -33,18 +33,15 @@ def parse_args():
 if __name__ == '__main__':
 
     opt = parse_args()
+
     # IDEA: Split just in TRAIN and TEST because the final test will be just
     # by writing a letter, predict the whole sentence --> we dont need a test set
 
     # x_train, x_test, x_val = split_data('./11.txt', 0.8, opt.onlytrain)
     # x_train, x_test, x_val = split_data('./11.txt', 0.8, False)
-    x_train, x_val = split_data_without_test('./11.txt')
-    # embed()
-    # dictionary_len = set_alphabet(x_train)
+    # x_train, x_val = split_data_without_test('./11.txt')
+    x_train, x_val = split_data_without_test('./LazarilloTormes.txt', idioma="es")
+    # x_train, x_val = split_data_without_test('./poesia.txt', idioma="es")
+    # x_train, x_val = split_data_without_test('./poemes.txt', idioma="es")
     dictionary_len = len(ALPHABET)
-
-    # if opt.inference:
-    #     inference(opt, x_test, dictionary_len)
-    # else:
     train(opt, x_train, x_val, dictionary_len)
-        # train(opt, x_train, x_test, dictionary_len)

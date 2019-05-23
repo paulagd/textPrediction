@@ -10,73 +10,38 @@ import numpy as np
 import os
 from tqdm import trange
 from IPython import embed
+import heapq
 
 
-def sample(net, size, device='cuda', prime='The', top_k=None):
+def sample(model, device, index_sample, range_seq=100, idx_prob=0):
 
-    net.to(device)
+    letter = torch.LongTensor([index_sample]).reshape(1, 1)
+    letter = letter.to(device)
 
-    net.eval()  # eval mode
+    pred, state = model(letter)
 
-    # First off, run through the prime characters
-    chars = [ch for ch in prime]
-    h = net.init_hidden(1)
-    for ch in prime:
-        char, h = predict(net, ch, h, top_k=top_k)
-
-    chars.append(char)
-
-    # Now pass in the previous character and get a new one
-    for ii in range(size):
-        char, h = predict(net, chars[-1], h, top_k=top_k)
-        chars.append(char)
-
-    return ''.join(chars)
-
-
-# Defining a method to generate the next character
-def predict(net, char, device='cuda', h=None, top_k=None):
-    ''' Given a character, predict the next character.
-        Returns the predicted character and the hidden state.
-    '''
-
-    # tensor inputs
-    x = np.array([[net.char2int[char]]])
-    x = one_hot_encode(x, len(net.chars))
-    inputs = torch.from_numpy(x)
-    inputs = inputs.to(device)
-
-    # detach hidden state from history
-    h = tuple([each.data for each in h])
-    # get the output of the model
-    out, h = net(inputs, h)
-
-    # get the character probabilities
-    p = F.softmax(out, dim=1).data
-    p = p.to(device)
-
-    # get top characters
-    if top_k is None:
-        top_ch = np.arange(len(net.chars))
+    words = []
+    embed()
+    if idx_prob == 0:
+        pred = torch.argmax(pred, dim=-1)
     else:
-        p, top_ch = p.topk(top_k)
-        top_ch = top_ch.numpy().squeeze()
+        pred = heapq.nlargest(10, range(len(pred)), key=pred.__getitem__)[idx_prob]
 
-    # select the likely next character with some element of randomness
-    p = p.numpy().squeeze()
-    char = np.random.choice(top_ch, p=p/p.sum())
+    words.append(index_to_letter(pred.squeeze().item(), ALPHABET))
 
-    # return the encoded value of the predicted char and the hidden state
-    return net.int2char[char], h
+    for _ in range(range_seq):
+        pred, state = model(pred, state)
+        pred = torch.argmax(pred, dim=-1)
+        words.append(index_to_letter(pred.squeeze().item(), ALPHABET))
+
+    return ''.join(words)
 
 
-def inference(opt, x_test, dictionary_len):
+def inference():
 
     # Declaring the hyperparameters
-    batch_size = opt.batch_size
-    seq_length = 100
-    epochs = 100 # start smaller if you are just testing initial behavior
-    top_k = 50
+    hidden_size = 128
+    # seq_length = 100
     # opt = parse_args()
     if torch.cuda.is_available():
         device = "cuda"
@@ -84,22 +49,22 @@ def inference(opt, x_test, dictionary_len):
         device = "cpu"
     print(device)
 
-    y_test = get_labels_text_prediction(x_test)
-    test_dataset = TextDataset(x_test, y_test)
+    # y_test = get_labels_text_prediction(x_test)
+    # test_dataset = TextDataset(x_test, y_test)
 
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        pin_memory=device == 'cuda',
-        batch_size=batch_size,
-        shuffle=False)
+    # test_loader = DataLoader(
+    #     dataset=test_dataset,
+    #     pin_memory=device == 'cuda',
+    #     batch_size=batch_size,
+    #     shuffle=False)
 
-    model_params = {'dictionary_len': dictionary_len,
-                    'dropout': opt.dropout,
-                    'hidden_size': opt.hidden_size,
-                    'layers': opt.layers,
-                    'embedding_len': 64,
+    model_params = {'dictionary_len': len(ALPHABET),
+                    'dropout': 0,
+                    'hidden_size': hidden_size,
+                    'layers': 1,
+                    'embedding_len': 32,
                     'device': device,
-                    'lr': opt.lr
+                    'lr': 0.001
                     }
 
     model = CharRNN(**model_params).to(device)
@@ -107,55 +72,49 @@ def inference(opt, x_test, dictionary_len):
                             map_location=('cpu' if device != 'cuda' else None))
     model.load_state_dict(checkpoint["state_dict"])
     model.to(device)
+
+    # idx_prob GETS 0 for max prob / 1 for second max prob / etc...
+    predicted_words = sample(model, device, 12, 500, idx_prob=1)
+    print(' '.join(predicted_words))
+
     #
-    # predict()
-    # for _ in range(100):
-    #         ix = torch.tensor([[choice]]).to(device)
-    #         output, (state_h, state_c) = net(ix, (state_h, state_c))
+    # for i, (x, y) in enumerate(test_loader):
     #
-    #         _, top_ix = torch.topk(output[0], k=top_k)
-    #         choices = top_ix.tolist()
-    #         choice = np.random.choice(choices[0])
-    #         words.append(int_to_vocab[choice])
+    #     if i == 1:
+    #         break
+    #     if i == len(test_loader) - 1:
+    #         # print("FER PADDING -  DE MOMENT NO VA")
+    #         continue
     #
-    #     print(' '.join(words))
-    words = []
+    #     model.eval()
+    #     state_h, state_c = model.zero_state(1)
+    #     # state_h, state_c = model.zero_state(opt.batch_size)
+    #     state_h = state_h.to(device)
+    #     state_c = state_c.to(device)
+    #
+    #     x = x.to(device)
+    #     # ???????
+    #     output, (state_h, state_c) = model(x[0].unsqueeze(0), (state_h, state_c))
+    #
+    #     _, top_x = torch.topk(output[0], k=top_k)
+    #     choices = top_x.tolist()
+    #     choice = np.random.choice(choices)
+    #     pred_word = index_to_letter(choice, ALPHABET)
+    #     words.append(pred_word)
+    #
+    #     for _ in range(100):
+    #
+    #         char = unicode_to_ascii(pred_word, ALPHABET)
+    #         encoded = letter_to_index(char, ALPHABET)
+    #         new_x = torch.tensor([encoded], dtype=torch.long).to(device)
+    #         output, (state_h, state_c) = model(new_x, (state_h, state_c))
+    #
+    #         _, top_x = torch.topk(output[0], k=top_k)
+    #         choices = top_x.tolist()
+    #         choice = np.random.choice(choices)
+    #         pred_word = index_to_letter(choice, ALPHABET)
+    #         words.append(pred_word)
 
-    for i, (x, y) in enumerate(test_loader):
 
-        if i == 1:
-            break
-        if i == len(test_loader) - 1:
-            # print("FER PADDING -  DE MOMENT NO VA")
-            continue
-
-        model.eval()
-        state_h, state_c = model.zero_state(1)
-        # state_h, state_c = model.zero_state(opt.batch_size)
-        state_h = state_h.to(device)
-        state_c = state_c.to(device)
-
-        x = x.to(device)
-        # ???????
-        output, (state_h, state_c) = model(x[0].unsqueeze(0), (state_h, state_c))
-
-        _, top_x = torch.topk(output[0], k=top_k)
-        choices = top_x.tolist()
-        choice = np.random.choice(choices)
-        pred_word = index_to_letter(choice, ALPHABET)
-        words.append(pred_word)
-
-        for _ in range(100):
-
-            char = unicode_to_ascii(pred_word, ALPHABET)
-            encoded = letter_to_index(char, ALPHABET)
-            new_x = torch.tensor([encoded], dtype=torch.long).to(device)
-            output, (state_h, state_c) = model(new_x, (state_h, state_c))
-
-            _, top_x = torch.topk(output[0], k=top_k)
-            choices = top_x.tolist()
-            choice = np.random.choice(choices)
-            pred_word = index_to_letter(choice, ALPHABET)
-            words.append(pred_word)
-
-        print(' '.join(words))
+if __name__ == '__main__':
+    inference()

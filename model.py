@@ -11,7 +11,6 @@ class CharRNN(nn.Module):
         self.lstm = nn.LSTM(embedding_len, hidden_size, batch_first=True, bidirectional=False,
                             num_layers=layers, dropout=dropout)
         self.fc1 = nn.Linear(hidden_size, dictionary_len)
-        # self.fc2 = nn.Linear(hidden_size, diccionary_len)
         self.dropout = nn.Dropout(dropout)
         self.layers = layers
         self.hidden_size = hidden_size
@@ -23,7 +22,7 @@ class CharRNN(nn.Module):
             These inputs are x, and the hidden/cell state `hidden`. '''
 
         embeding = self.embedding(x)
-        # embeding = self.dropout(embeding)
+        embeding = self.dropout(embeding)
 
         # get the outputs and the new hidden state from the lstm
         # B x T x embeding_len

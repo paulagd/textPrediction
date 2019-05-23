@@ -2,7 +2,7 @@ import torch
 from tensorboardX import SummaryWriter
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from utils import get_labels_text_prediction, do_inference_test, pred_dani
+from utils import get_labels_text_prediction, inference_prediction
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from dataset import TextDataset
 from datetime import datetime
@@ -12,6 +12,7 @@ import os
 import random
 import numpy as np
 from IPython import embed
+from torchsummary import summary
 
 
 def train(opt, x_train, x_val, dictionary_len):
@@ -34,13 +35,11 @@ def train(opt, x_train, x_val, dictionary_len):
     torch.manual_seed(0)
     np.random.seed(0)
     random.seed(0)
-    # x_val = x_train[:1000]
     # Declaring the hyperparameters
     batch_size = opt.batch_size
     seq_length = int(opt.seq_length)
-    epochs = 156  # start smaller if you are just testing initial behavior
+    epochs = 50
 
-    # opt = parse_args()
     if torch.cuda.is_available():
         device = "cuda"
         torch.cuda.manual_seed_all(0)
@@ -84,6 +83,9 @@ def train(opt, x_train, x_val, dictionary_len):
 
     model = CharRNN(**model_params).to(device)
     print(model)
+    # embed()
+    # summary(model, input_size=(channels, H, W))
+    # summary(model, input_size=(dictionary_len, 28, 28))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr)
     criterion = nn.CrossEntropyLoss()
@@ -94,13 +96,11 @@ def train(opt, x_train, x_val, dictionary_len):
     for j in trange(epochs, desc='T raining LSTM...'):
 
         for i, (x, y) in enumerate(train_loader):
-
             if i == len(train_loader) - 1:
                 print("FER PADDING -  DE MOMENT NO VA")
                 continue
             model.train()
 
-            # embed()
             x = x.to(device)
             y = y.to(device)
 
@@ -115,12 +115,10 @@ def train(opt, x_train, x_val, dictionary_len):
             pred, (state_h, state_c) = model(x)
             # pred, (state_h, state_c) = model(x, (state_h, state_c))
             # CALCULATE LOSS
-            # embed()
             # pred = pred.transpose(1, 2)
             pred2 = pred.view(-1, dictionary_len)
             y2 = y.view(-1)
             loss = criterion(pred2, y2)
-            # loss = criterion(pred, y.view(batch_size * seq_length).long())
             loss_value = loss.item()
 
             # BACKWARD PASS
@@ -175,7 +173,7 @@ def train(opt, x_train, x_val, dictionary_len):
                 scheduler.step(np.mean(val_loss))
                 writer.add_scalar("lr", optimizer.param_groups[0]["lr"], j)
 
-            predicted_words = pred_dani(model, device, 500)
+            predicted_words = inference_prediction(model, device, 500)
             # output = pred[0].unsqueeze(0)  # [1,diccionary_len, 40]
             # predicted_words = do_inference_test(output, model, device)
             print(predicted_words)
